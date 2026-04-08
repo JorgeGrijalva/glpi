@@ -4,6 +4,8 @@
 !/marketplace/.gitkeep
 /plugins/*
 !/plugins/.gitkeep
+!/plugins/engineeringworkflow/
+!/plugins/engineeringworkflow/**
 /files/*/*
 !/files/*/.gitkeep
 /.buildpath
