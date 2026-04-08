@@ -1,0 +1,25 @@
+<tr class="tab_bg_1">
+    <td colspan="12">
+        <div class="card">
+            <div class="card-header">Engineering Workflow</div>
+            <div class="card-body">
+                <table class="tab_cadre_fixehov">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>{{ row.status_label }}</td>
+                                <td>{{ row.count }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </td>
+</tr>

@@ -36,9 +36,57 @@ namespace GlpiPlugin\Engineeringworkflow;
 
 final class TicketLifecycle
 {
+    public static function route_ticket_before_add(\Ticket $ticket): void
+    {
+        if (!is_array($ticket->input)) {
+            return;
+        }
+
+        $is_bootstrap_ticket = (bool) ($ticket->input['_engineeringworkflow_bootstrap'] ?? false);
+        if (!$is_bootstrap_ticket) {
+            return;
+        }
+
+        $small_project_tonnage = WorkflowConfig::get_int(
+            WorkflowConfig::KEY_SMALL_PROJECT_TONNAGE,
+            100
+        );
+        if ($small_project_tonnage <= 0) {
+            $small_project_tonnage = 100;
+        }
+
+        $project_tonnage = (float) ($ticket->input['_engineeringworkflow_tonnage'] ?? 0);
+        $is_export = (bool) ($ticket->input['_engineeringworkflow_is_export'] ?? false);
+        $business_units = (int) ($ticket->input['_engineeringworkflow_business_units'] ?? 1);
+
+        $target_group_id = WorkflowConfig::get_int(
+            WorkflowConfig::KEY_PLANNING_GROUP_ID,
+            0
+        );
+
+        if ($project_tonnage > $small_project_tonnage || $is_export || $business_units > 2) {
+            $target_group_id = WorkflowConfig::get_int(
+                WorkflowConfig::KEY_PM_GROUP_ID,
+                0
+            );
+        }
+
+        if ($target_group_id > 0) {
+            $ticket->input['_groups_id_assign'] = $target_group_id;
+        }
+    }
+
     public static function validate_before_update(\Ticket $ticket): void
     {
+        if (self::requires_pause_approval($ticket)) {
+            return;
+        }
+
         if (!self::is_closing_transition($ticket)) {
+            return;
+        }
+
+        if (!WorkflowConfig::is_enabled(WorkflowConfig::KEY_ENABLE_DELIVERABLE_CHECK, true)) {
             return;
         }
 
@@ -61,6 +109,51 @@ final class TicketLifecycle
         );
 
         $ticket->input = false;
+    }
+
+    public static function track_status_transition_after_update(\Ticket $ticket): void
+    {
+        if (!WorkflowConfig::is_enabled(WorkflowConfig::KEY_ENABLE_STATUS_TIMELINE, true)) {
+            return;
+        }
+
+        if (!self::is_engineering_flow_ticket($ticket)) {
+            return;
+        }
+
+        if (!in_array('status', $ticket->updates, true)) {
+            return;
+        }
+
+        $old_status = (int) ($ticket->oldvalues['status'] ?? 0);
+        $new_status = (int) ($ticket->fields['status'] ?? 0);
+
+        if ($old_status === $new_status || $new_status <= 0) {
+            return;
+        }
+
+        $message = sprintf(
+            'Engineering workflow status changed from "%s" to "%s".',
+            (string) \Ticket::getStatus($old_status),
+            (string) \Ticket::getStatus($new_status)
+        );
+
+        $pause_type = (string) ($ticket->input['_engineeringworkflow_pause_type'] ?? '');
+        $pause_reason = trim((string) ($ticket->input['_engineeringworkflow_pause_reason'] ?? ''));
+        if ($pause_type !== '') {
+            $message .= sprintf(' Pause type: %s.', $pause_type);
+        }
+        if ($pause_reason !== '') {
+            $message .= sprintf(' Pause reason: %s.', $pause_reason);
+        }
+
+        $followup = new \ITILFollowup();
+        $followup->add([
+            'itemtype' => \Ticket::class,
+            'items_id' => (int) $ticket->fields['id'],
+            'content' => $message,
+            'is_private' => 0,
+        ]);
     }
 
     public static function link_child_ticket_after_add(\Ticket $ticket): void
@@ -176,5 +269,50 @@ final class TicketLifecycle
         }
 
         return 0;
+    }
+
+    private static function requires_pause_approval(\Ticket $ticket): bool
+    {
+        if (!WorkflowConfig::is_enabled(WorkflowConfig::KEY_ENABLE_PAUSE_APPROVAL, true)) {
+            return false;
+        }
+
+        if (!self::is_engineering_flow_ticket($ticket)) {
+            return false;
+        }
+
+        if (!isset($ticket->input['status']) || (int) $ticket->input['status'] !== \Ticket::WAITING) {
+            return false;
+        }
+
+        $pause_type = (string) ($ticket->input['_engineeringworkflow_pause_type'] ?? '');
+        if (!in_array($pause_type, ['internal', 'client'], true)) {
+            return false;
+        }
+
+        $pause_reason = trim((string) ($ticket->input['_engineeringworkflow_pause_reason'] ?? ''));
+        if ($pause_reason === '') {
+            \Session::addMessageAfterRedirect(
+                __s('A pause reason is required for engineering workflow tickets.'),
+                false,
+                ERROR
+            );
+            $ticket->input = false;
+            return true;
+        }
+
+        $pause_approved = (bool) ($ticket->input['_engineeringworkflow_pause_approved'] ?? false);
+        $can_approve = \Session::haveRight(\Ticket::$rightname, \Ticket::ASSIGN);
+        if (!$pause_approved || !$can_approve) {
+            \Session::addMessageAfterRedirect(
+                __s('Pause requires approval by a coordinator or project manager.'),
+                false,
+                ERROR
+            );
+            $ticket->input = false;
+            return true;
+        }
+
+        return false;
     }
 }

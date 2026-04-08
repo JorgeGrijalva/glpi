@@ -34,13 +34,15 @@
 
 use Glpi\Plugin\HookManager;
 use Glpi\Plugin\Hooks;
+use GlpiPlugin\Engineeringworkflow\CentralWidget;
 use GlpiPlugin\Engineeringworkflow\TicketLifecycle;
+use GlpiPlugin\Engineeringworkflow\WorkflowConfig;
 
 function plugin_version_engineeringworkflow(): array
 {
     return [
         'name' => 'engineeringworkflow',
-        'version' => '1.0.0',
+        'version' => '1.2.0',
         'author' => 'ESJ',
         'license' => 'GPL v2+',
         'requirements' => [
@@ -53,12 +55,20 @@ function plugin_version_engineeringworkflow(): array
 
 function plugin_init_engineeringworkflow(): void
 {
+    $GLOBALS['PLUGIN_HOOKS'][Hooks::CONFIG_PAGE]['engineeringworkflow'] = 'settings';
+
     $plugin = new Plugin();
     if (!$plugin->isActivated('engineeringworkflow')) {
         return;
     }
 
     $hook_manager = new HookManager('engineeringworkflow');
+    $hook_manager->registerItemHook(
+        Hooks::PRE_ITEM_ADD,
+        Ticket::class,
+        [TicketLifecycle::class, 'route_ticket_before_add']
+    );
+
     $hook_manager->registerItemHook(
         Hooks::PRE_ITEM_UPDATE,
         Ticket::class,
@@ -70,14 +80,27 @@ function plugin_init_engineeringworkflow(): void
         Ticket::class,
         [TicketLifecycle::class, 'link_child_ticket_after_add']
     );
+
+    $hook_manager->registerItemHook(
+        Hooks::ITEM_UPDATE,
+        Ticket::class,
+        [TicketLifecycle::class, 'track_status_transition_after_update']
+    );
+
+    $hook_manager->registerFunctionalHook(
+        Hooks::DISPLAY_CENTRAL,
+        [CentralWidget::class, 'render_widget']
+    );
 }
 
 function plugin_engineeringworkflow_install(): bool
 {
+    WorkflowConfig::install_defaults();
     return true;
 }
 
 function plugin_engineeringworkflow_uninstall(): bool
 {
+    WorkflowConfig::uninstall_values();
     return true;
 }

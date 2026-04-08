@@ -1,0 +1,114 @@
+{% extends 'layout/page_without_tabs.html.twig' %}
+
+{% block page_title %}Engineering workflow settings{% endblock %}
+
+{% block content_title %}Engineering workflow settings{% endblock %}
+
+{% block content_body %}
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{{ path('engineeringworkflow_settings_update') }}">
+                <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="planning_group_id">Planning group</label>
+                <select class="form-select" id="planning_group_id" name="planning_group_id">
+                    <option value="0">None</option>
+                    {% for group in groups %}
+                        <option value="{{ group.id }}" {{ settings.planning_group_id == group.id ? 'selected' : '' }}>
+                            {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="pm_group_id">Project manager group</label>
+                <select class="form-select" id="pm_group_id" name="pm_group_id">
+                    <option value="0">None</option>
+                    {% for group in groups %}
+                        <option value="{{ group.id }}" {{ settings.pm_group_id == group.id ? 'selected' : '' }}>
+                            {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="small_project_tonnage">Small project tonnage threshold</label>
+                <input
+                    class="form-control"
+                    id="small_project_tonnage"
+                    type="number"
+                    min="1"
+                    name="small_project_tonnage"
+                    value="{{ settings.small_project_tonnage }}"
+                />
+            </div>
+
+            <div class="col-12 col-md-8">
+                <label class="form-label" for="api_token">API token for bootstrap endpoints</label>
+                <input
+                    class="form-control"
+                    id="api_token"
+                    type="text"
+                    name="api_token"
+                    value="{{ settings.api_token }}"
+                    autocomplete="off"
+                />
+            </div>
+
+            <div class="col-12">
+                <div class="form-check mb-2">
+                    <input
+                        class="form-check-input"
+                        id="enable_deliverable_check"
+                        type="checkbox"
+                        name="enable_deliverable_check"
+                        value="1"
+                        {{ settings.enable_deliverable_check ? 'checked' : '' }}
+                    />
+                    <label class="form-check-label" for="enable_deliverable_check">
+                        Require document attachment before ticket close
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input
+                        class="form-check-input"
+                        id="enable_pause_approval"
+                        type="checkbox"
+                        name="enable_pause_approval"
+                        value="1"
+                        {{ settings.enable_pause_approval ? 'checked' : '' }}
+                    />
+                    <label class="form-check-label" for="enable_pause_approval">
+                        Require approval for pause status
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input
+                        class="form-check-input"
+                        id="enable_status_timeline"
+                        type="checkbox"
+                        name="enable_status_timeline"
+                        value="1"
+                        {{ settings.enable_status_timeline ? 'checked' : '' }}
+                    />
+                    <label class="form-check-label" for="enable_status_timeline">
+                        Add timeline entries on status transitions
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button class="btn btn-primary" type="submit">Save settings</button>
+        </div>
+    </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
